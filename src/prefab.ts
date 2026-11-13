@@ -5,12 +5,108 @@ function aim(from: { x: number; y: number }, arena: Arena): number {
   return Math.atan2(arena.player.y - from.y, arena.player.x - from.x);
 }
 
+export interface KindRecord {
+  kind: string;
+  texture: string;
+  hp: number;
+  score: number;
+  radius: number;
+  dropChance: number;
+}
+
+export type PrefabKind = KindRecord;
+
+export const DRONE: KindRecord = {
+  kind: "drone",
+  texture: "drone",
+  hp: 2,
+  score: 100,
+  radius: 13,
+  dropChance: 0.015,
+};
+
+export const DART: KindRecord = {
+  kind: "dart",
+  texture: "dart",
+  hp: 1,
+  score: 150,
+  radius: 12,
+  dropChance: 0.015,
+};
+
+export const TURRET: KindRecord = {
+  kind: "turret",
+  texture: "turret",
+  hp: 12,
+  score: 400,
+  radius: 19,
+  dropChance: 0.3,
+};
+
+export const LANCER: KindRecord = {
+  kind: "lancer",
+  texture: "lancer",
+  hp: 4,
+  score: 250,
+  radius: 15,
+  dropChance: 0.06,
+};
+
+export const BOSS: KindRecord = {
+  kind: "boss",
+  texture: "boss",
+  hp: 900,
+  score: 10000,
+  radius: 46,
+  dropChance: 0,
+};
+
+export const SPREAD: KindRecord = {
+  kind: "spread",
+  texture: "spread",
+  hp: 0,
+  score: 0,
+  radius: 14,
+  dropChance: 0,
+};
+
+export const SHIELD: KindRecord = {
+  kind: "shield",
+  texture: "shield",
+  hp: 0,
+  score: 0,
+  radius: 14,
+  dropChance: 0,
+};
+
+export const KINDS: Record<string, KindRecord> = {
+  drone: DRONE,
+  dart: DART,
+  turret: TURRET,
+  lancer: LANCER,
+  boss: BOSS,
+  spread: SPREAD,
+  shield: SHIELD,
+};
+
+export const ENEMY_KINDS = {
+  drone: DRONE,
+  dart: DART,
+  turret: TURRET,
+  lancer: LANCER,
+} as const;
+
 /**
  * Base class for everything the player can shoot or pick up: enemies, the
  * boss and power-ups. kind is the prefab's name and also its texture key.
  */
 export class ShmupPrefabSprite extends Actor {
   maxHp: number;
+  hp: number;
+  score: number;
+  dropChance: number;
+  kind: string;
+  homeX: number;
   flash = 0;
   heading = 0;
   // spin: turrets rotate using this
@@ -20,18 +116,16 @@ export class ShmupPrefabSprite extends Actor {
     scene: Phaser.Scene,
     x: number,
     y: number,
-    public kind: string,
-    public hp: number,
-    public score: number,
-    radius: number,
-    public dropChance: number,
-    public canShoot: boolean,
-    public isPickup: boolean,
-    public homeX: number,
-    public side: number,
+    kind: KindRecord,
+    public side: number = 1,
   ) {
-    super(scene, x, y, kind, radius);
-    this.maxHp = hp;
+    super(scene, x, y, kind.texture ?? kind.kind, kind.radius);
+    this.kind = kind.kind ?? kind.texture;
+    this.hp = kind.hp;
+    this.maxHp = kind.hp;
+    this.score = kind.score;
+    this.dropChance = kind.dropChance;
+    this.homeX = x;
   }
 
   step(arena: Arena): void {
@@ -40,7 +134,7 @@ export class ShmupPrefabSprite extends Actor {
     this.moveByKind(arena);
     this.vx = this.x - x;
     this.vy = this.y - y;
-    if (this.canShoot) this.fireWeapon(arena);
+    this.fireWeapon(arena);
     this.flash = Math.max(0, this.flash - 1);
     if (this.flash > 0) {
       this.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
@@ -110,7 +204,6 @@ export class ShmupPrefabSprite extends Actor {
 
   /** Returns true when this hit destroys the prefab. */
   takeDamage(amount: number): boolean {
-    if (this.isPickup) return false;
     this.hp -= amount;
     this.flash = 3;
     return this.hp <= 0;
@@ -122,20 +215,7 @@ export class ShmupBoss extends ShmupPrefabSprite {
   readonly core: Phaser.GameObjects.Image;
 
   constructor(scene: Phaser.Scene) {
-    super(
-      scene,
-      WIDTH / 2,
-      -90,
-      "boss",
-      900,
-      10000,
-      46,
-      0,
-      true,
-      false,
-      WIDTH / 2,
-      1,
-    );
+    super(scene, WIDTH / 2, -90, BOSS);
     this.core = scene.add.image(this.x, this.y, "boss-core").setBlendMode(
       Phaser.BlendModes.ADD,
     );
@@ -209,8 +289,20 @@ export class ShmupBoss extends ShmupPrefabSprite {
 }
 
 export class ShmupPowerUp extends ShmupPrefabSprite {
-  constructor(scene: Phaser.Scene, x: number, y: number, kind) {
-    super(scene, x, y, kind, 0, 0, 14, 0, false, true, x, 1);
+  constructor(scene: Phaser.Scene, x: number, y: number, kind: string) {
+    super(
+      scene,
+      x,
+      y,
+      KINDS[kind] ?? {
+        kind,
+        texture: kind,
+        hp: 0,
+        score: 0,
+        radius: 14,
+        dropChance: 0,
+      },
+    );
   }
 
   override step(): void {
