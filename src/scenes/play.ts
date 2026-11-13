@@ -33,7 +33,6 @@ export interface RunStats {
   hits: number;
   continues: number;
   bossDefeated?: boolean;
-  bossDefeted?: boolean;
 }
 
 export class PlayScene extends Phaser.Scene implements Arena {
@@ -65,19 +64,24 @@ export class PlayScene extends Phaser.Scene implements Arena {
       let spawnTick = wave.at;
       let x = cx;
       let y = -30;
-      if (wave.formation === "line") {
-        spawnTick = wave.at;
-        x = cx + (i - (count - 1) / 2) * 64;
-      } else if (wave.formation === "vee") {
-        spawnTick = wave.at + Math.abs(i - (count - 1) / 2) * 10;
-        x = cx + (i - (count - 1) / 2) * 44;
-      } else if (wave.formation === "column") {
-        spawnTick = wave.at + i * 24;
-        x = cx;
-      } else if (wave.formation === "sides") {
-        spawnTick = wave.at + Math.floor(i / 2) * 30;
-        x = i % 2 === 0 ? -30 : 510;
-        y = 70 + Math.floor(i / 2) * 50;
+      switch (wave.formation) {
+        case "line":
+          spawnTick = wave.at;
+          x = cx + (i - (count - 1) / 2) * 64;
+          break;
+        case "vee":
+          spawnTick = wave.at + Math.abs(i - (count - 1) / 2) * 10;
+          x = cx + (i - (count - 1) / 2) * 44;
+          break;
+        case "column":
+          spawnTick = wave.at + i * 24;
+          x = cx;
+          break;
+        case "sides":
+          spawnTick = wave.at + Math.floor(i / 2) * 30;
+          x = i % 2 === 0 ? -30 : 510;
+          y = 70 + Math.floor(i / 2) * 50;
+          break;
       }
       if (t === spawnTick) {
         const enemy = new Enemy(
@@ -350,7 +354,7 @@ export class PlayScene extends Phaser.Scene implements Arena {
 
   private hurtPlayer(): void {
     // After the Warden falls, nothing can hurt the ship during the victory lap.
-    if (this.run.bossDefeted || this.gameOver || !this.player.vulnerable) {
+    if (this.run.bossDefeated || this.gameOver || !this.player.vulnerable) {
       return;
     }
     this.run.hits++;
@@ -385,7 +389,7 @@ export class PlayScene extends Phaser.Scene implements Arena {
     this.victoryAt = this.now + VICTORY_TICKS;
     this.hud.setBoss(0);
     this.hud.announce("WARDEN DOWN", "The lanes are open");
-    console.log("victory lap: ship protected =", this.run.bossDefeted);
+    console.log("victory lap: ship protected =", this.run.bossDefeated);
     // The Warden's fall takes its bullets and escorts with it (no score).
     for (const bullet of this.bullets) {
       this.burst(bullet.x, bullet.y, 2, TINTS.spark);
